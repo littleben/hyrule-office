@@ -213,7 +213,7 @@
   /* 状态面板 */
   .status-panel {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -446,7 +446,7 @@
 
   /* 响应式 */
   @media (max-width: 600px) {
-    .status-panel { grid-template-columns: 1fr; }
+    .status-panel { grid-template-columns: 1fr 1fr; }
     .agents-grid { grid-template-columns: repeat(2, 1fr); }
     .header h1 { font-size: 10px; }
   }
@@ -538,8 +538,20 @@
 
     <div class="status-card" id="card-agents">
       <div class="card-title">🧝 勇者团</div>
-      <div class="card-value">6</div>
+      <div class="card-value" id="online-count">6</div>
       <div class="card-sub">名同伴在线</div>
+    </div>
+
+    <div class="status-card" id="card-tokens">
+      <div class="card-title">⚡ 今日 Tokens</div>
+      <div class="card-value" id="token-count">—</div>
+      <div class="card-sub" id="token-cost">花费 $—</div>
+    </div>
+
+    <div class="status-card" id="card-cron">
+      <div class="card-title">⏰ 定时任务</div>
+      <div class="card-value" id="cron-runs">—</div>
+      <div class="card-sub" id="cron-meta">— 个任务启用中</div>
     </div>
   </div>
 
@@ -996,7 +1008,26 @@ function timeAgo(ms) {
 
 function applyLiveData(data) {
   // 更新勇者团在线数
-  document.getElementById('card-agents').querySelector('.card-value').textContent = data.onlineCount;
+  const onlineEl = document.getElementById('online-count');
+  if (onlineEl) onlineEl.textContent = data.onlineCount;
+
+  // Token 卡片
+  if (data.tokens) {
+    const t = data.tokens.totalTokens;
+    const fmt = t >= 1e6 ? (t/1e6).toFixed(1)+'M' : t >= 1e3 ? (t/1e3).toFixed(0)+'K' : t;
+    const tc = document.getElementById('token-count');
+    const tco = document.getElementById('token-cost');
+    if (tc) tc.textContent = fmt;
+    if (tco) tco.textContent = `花费 $${data.tokens.totalCost.toFixed(4)}`;
+  }
+
+  // Cron 卡片
+  if (data.cron) {
+    const cr = document.getElementById('cron-runs');
+    const cm = document.getElementById('cron-meta');
+    if (cr) cr.textContent = data.cron.todayRuns + ' 次';
+    if (cm) cm.textContent = `${data.cron.enabled}/${data.cron.total} 个任务启用`;
+  }
 
   // 重建 agent 花名册
   const grid = document.querySelector('.agents-grid');
@@ -1017,15 +1048,13 @@ function applyLiveData(data) {
     });
   }
 
-  // Cron 日志注入到冒险日志
-  if (data.recentCrons?.length) {
+  // Cron 日志注入冒险日志
+  if (data.cron?.recent?.length) {
     const container = document.getElementById('log-container');
-    // 只在首次加载时插入，避免重复
     if (!container.dataset.cronLoaded) {
       container.dataset.cronLoaded = '1';
-      // 清空占位条目
       container.innerHTML = '';
-      data.recentCrons.forEach(job => {
+      data.cron.recent.forEach(job => {
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         const t = new Date(job.lastRunAtMs);

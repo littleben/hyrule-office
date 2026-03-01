@@ -6,8 +6,8 @@ Port: 8901  |  Endpoints: /status  /health
 import json, os, time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.request import urlopen
-from urllib.error import URLError
 from pathlib import Path
+from datetime import datetime, timezone
 
 HOME     = Path.home()
 OPENCLAW = HOME / '.openclaw'
@@ -22,7 +22,7 @@ AGENTS = [
     {'id': 'openai-assistant', 'name': 'OpenAI小助手', 'role': '模型・光之神庙', 'avatar': '🤝'},
 ]
 
-def last_activity_ms(agent_id: str):
+def last_activity_ms(agent_id):
     d = OPENCLAW / 'agents' / agent_id / 'sessions'
     if not d.exists():
         return None
@@ -41,18 +41,103 @@ def activity_status(last_ms):
     if diff < 86400: return 'idle'
     return 'offline'
 
-def get_cron_jobs():
+def get_cron_stats():
     p = OPENCLAW / 'cron' / 'jobs.json'
     try:
         data = json.loads(p.read_text())
-        jobs = [j for j in data.get('jobs', []) if j.get('state', {}).get('lastRunAtMs')]
-        jobs.sort(key=lambda j: j['state']['lastRunAtMs'], reverse=True)
-        return [{'id': j['id'], 'name': j['name'], 'agentId': j['agentId'],
-                 'lastRunAtMs': j['state']['lastRunAtMs'],
-                 'lastStatus': j['state'].get('lastStatus', '?'),
-                 'enabled': j.get('enabled', True)} for j in jobs[:5]]
-    except Exception:
-        return []
+        jobs = data.get('jobs', [])
+        enabled = sum(1 for j in jobs if j.get('enabled'))
+
+        # 今日运行次数
+        today_ms = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).timestamp() * 1000
+        run_count = 0
+        runs_dir = OPENCLAW / 'cron' / 'runs'
+        for f in runs_dir.glob('*.jsonl'):
+            try:
+                for line in f.read_text().strip().splitlines():
+                    d = json.loads(line)
+                    if d.get('ts', 0) >= today_ms and d.get('action') == 'finished':
+                        run_count += 1
+            except:
+                pass
+
+        # 最近5条记录
+        recent = []
+        all_runs = []
+        for f in runs_dir.glob('*.jsonl'):
+            try:
+                for line in f.read_text().strip().splitlines():
+                    d = json.loads(line)
+                    if d.get('action') == 'finished':
+                        all_runs.append(d)
+            except:
+                pass
+        all_runs.sort(key=lambda x: x.get('ts', 0), reverse=True)
+
+        # 找 job name
+        job_map = {j['id']: j for j in jobs}
+        for run in all_runs[:5]:
+            jid = run.get('jobId', '')
+            job = job_map.get(jid, {})
+            recent.append({
+                'id': jid,
+                'name': job.get('name', jid[:12]),
+                'agentId': job.get('agentId', '?'),
+                'lastRunAtMs': run.get('ts'),
+                'lastStatus': run.get('status', '?'),
+                'enabled': job.get('enabled', True),
+            })
+
+        return {
+            'total': len(jobs),
+            'enabled': enabled,
+            'todayRuns': run_count,
+            'recent': recent,
+        }
+    except Exception as e:
+        return {'total': 0, 'enabled': 0, 'todayRuns': 0, 'recent': []}
+
+def get_token_stats():
+    """今日各 agent token + cost 汇总"""
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    total_tokens = 0
+    total_cost = 0.0
+    by_agent = {}
+
+    for agent_dir in (OPENCLAW / 'agents').iterdir():
+        name = agent_dir.name
+        sess_dir = agent_dir / 'sessions'
+        if not sess_dir.exists():
+            continue
+        a_tokens, a_cost = 0, 0.0
+        for f in sess_dir.glob('*.jsonl'):
+            if '.deleted.' in f.name:
+                continue
+            try:
+                for line in f.read_text().strip().splitlines():
+                    d = json.loads(line)
+                    if not d.get('timestamp', '').startswith(today):
+                        continue
+                    usage = (d.get('message') or {}).get('usage')
+                    if usage:
+                        t = usage.get('totalTokens', 0)
+                        c = (usage.get('cost') or {}).get('total', 0)
+                        a_tokens += t
+                        a_cost += c
+            except:
+                pass
+        if a_tokens:
+            by_agent[name] = {'tokens': a_tokens, 'cost': round(a_cost, 4)}
+            total_tokens += a_tokens
+            total_cost += a_cost
+
+    return {
+        'totalTokens': total_tokens,
+        'totalCost': round(total_cost, 4),
+        'byAgent': by_agent,
+    }
 
 def get_clawfeed():
     try:
@@ -63,9 +148,13 @@ def get_clawfeed():
             return None
         d = data[0]
         meta = json.loads(d['metadata']) if isinstance(d.get('metadata'), str) else (d.get('metadata') or {})
-        return {'id': d['id'], 'created_at': d['created_at'],
-                'hn_count': meta.get('hn_count'), 'github_count': meta.get('github_count')}
-    except Exception:
+        return {
+            'id': d['id'],
+            'created_at': d['created_at'],
+            'hn_count': meta.get('hn_count'),
+            'github_count': meta.get('github_count'),
+        }
+    except:
         return None
 
 def build_status():
@@ -74,16 +163,23 @@ def build_status():
         last_ms = last_activity_ms(a['id'])
         agents.append({**a, 'status': activity_status(last_ms), 'lastActiveMs': last_ms})
     online = sum(1 for a in agents if a['status'] != 'offline')
+
+    cron = get_cron_stats()
+    tokens = get_token_stats()
+
     return {
         'ts': int(time.time() * 1000),
         'agents': agents,
         'onlineCount': online,
-        'recentCrons': get_cron_jobs(),
+        'cron': cron,
+        # 兼容旧字段
+        'recentCrons': cron['recent'],
+        'tokens': tokens,
         'clawfeed': get_clawfeed(),
     }
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *_):  # 静默日志
+    def log_message(self, *_):
         pass
 
     def do_GET(self):
