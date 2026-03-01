@@ -1,89 +1,955 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hyrule Office — Agent 状态指挥所</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hyrule Office — West Bot 的海拉鲁传说</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    color: #e8d5a3;
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 星空背景 */
+  .stars {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(1px 1px at 10% 15%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 5%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 25%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 10%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 30%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 20% 40%, #adf 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 45%, #fff 0%, transparent 100%),
+      radial-gradient(2px 2px at 85% 55%, #ffd 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 70%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 80%, #dff 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 85%, #fff 0%, transparent 100%),
+      radial-gradient(2px 2px at 45% 90%, #ffd 0%, transparent 100%);
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    max-width: 900px; margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* 顶部标题 */
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+    border-bottom: 2px solid #3a6b35;
+    margin-bottom: 30px;
+    position: relative;
+  }
+
+  .triforce {
+    font-size: 40px; display: block; margin-bottom: 10px;
+    animation: glow 2s ease-in-out infinite alternate;
+    filter: drop-shadow(0 0 10px #f5c518);
+  }
+
+  @keyframes glow {
+    from { filter: drop-shadow(0 0 5px #f5c518); }
+    to { filter: drop-shadow(0 0 20px #f5c518) drop-shadow(0 0 40px #f59518); }
+  }
+
+  .header h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px; color: #f5c518;
+    letter-spacing: 2px; line-height: 1.8;
+    text-shadow: 0 0 10px rgba(245, 197, 24, 0.5);
+  }
+
+  .header p {
+    font-size: 12px; color: #7aab6e; margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* 主场景 */
+  .office-scene {
+    background: linear-gradient(180deg, #0d1f0a 0%, #1a3a14 40%, #2d5a24 100%);
+    border: 3px solid #3a6b35;
+    border-radius: 4px;
+    padding: 30px 20px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    min-height: 280px;
+    box-shadow:
+      inset 0 0 60px rgba(0,0,0,0.5),
+      0 0 20px rgba(58, 107, 53, 0.3);
+  }
+
+  /* 像素地板纹理 */
+  .office-scene::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(30, 60, 25, 0.8) 0px, rgba(30, 60, 25, 0.8) 40px,
+      rgba(25, 50, 20, 0.8) 40px, rgba(25, 50, 20, 0.8) 80px
+    );
+  }
+
+  /* 草地装饰 */
+  .grass-decoration {
+    position: absolute; bottom: 75px; left: 0; right: 0;
+    display: flex; justify-content: space-between; padding: 0 20px;
+    font-size: 20px; pointer-events: none;
+  }
+
+  /* 主角 - 林克像素精灵 */
+  .link-sprite {
+    position: absolute;
+    bottom: 85px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    transition: all 0.5s ease;
+  }
+
+  .sprite-canvas {
+    display: block;
+    margin: 0 auto 8px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  .speech-bubble {
+    background: rgba(10, 20, 8, 0.92);
+    border: 2px solid #f5c518;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 11px; color: #e8d5a3;
+    max-width: 200px; min-width: 140px;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(245, 197, 24, 0.3);
+    animation: bubble-appear 0.3s ease;
+  }
+
+  .speech-bubble::after {
+    content: '';
+    position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #f5c518;
+  }
+
+  @keyframes bubble-appear {
+    from { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  /* 心之容器 */
+  .hearts-bar {
+    position: absolute; top: 15px; left: 15px;
+    display: flex; gap: 4px;
+  }
+
+  .heart { font-size: 18px; animation: heartbeat 1.5s ease-in-out infinite; }
+  .heart:nth-child(2) { animation-delay: 0.1s; }
+  .heart:nth-child(3) { animation-delay: 0.2s; }
+
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  /* 金币/卢比显示 */
+  .rupees {
+    position: absolute; top: 15px; right: 15px;
+    font-size: 13px; color: #4fc3f7;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 0 0 8px rgba(79, 195, 247, 0.6);
+  }
+
+  /* 当前任务横幅 */
+  .quest-banner {
+    position: absolute; bottom: 80px; right: 15px;
+    background: rgba(10, 20, 8, 0.88);
+    border: 1px solid #3a6b35;
+    border-left: 3px solid #f5c518;
+    padding: 8px 12px;
+    font-size: 11px;
+    max-width: 160px;
+  }
+
+  .quest-banner .quest-label {
+    color: #f5c518; font-size: 9px;
+    font-family: 'Press Start 2P', monospace;
+    margin-bottom: 4px; display: block;
+  }
+
+  .quest-banner .quest-text { color: #e8d5a3; line-height: 1.5; }
+
+  /* 场景物件 */
+  .scene-objects {
+    position: absolute; bottom: 82px; left: 0; right: 0;
+    display: flex; gap: 20px; padding: 0 30px;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .pixel-tree { font-size: 32px; animation: sway 3s ease-in-out infinite; }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+
+  /* 状态面板 */
+  .status-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .status-card {
+    background: rgba(10, 30, 8, 0.85);
+    border: 2px solid #3a6b35;
+    border-radius: 4px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .status-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, #f5c518, transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .status-card.active::before { opacity: 1; }
+
+  .card-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px; color: #7aab6e;
+    margin-bottom: 12px; letter-spacing: 1px;
+  }
+
+  .card-value {
+    font-size: 20px; color: #f5c518;
+    font-weight: 700; margin-bottom: 4px;
+  }
+
+  .card-sub { font-size: 11px; color: #7aab6e; }
+
+  /* 当前状态卡片 */
+  .state-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(58, 107, 53, 0.3);
+    border: 1px solid #3a6b35;
+    border-radius: 3px;
+    padding: 6px 10px;
+    font-size: 12px; color: #e8d5a3;
+    margin-top: 8px;
+  }
+
+  .state-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4caf50;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+
+  .state-dot.busy { background: #ff9800; }
+  .state-dot.error { background: #f44336; }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.8); }
+  }
+
+  /* 任务日志 */
+  .quest-log {
+    background: rgba(10, 30, 8, 0.85);
+    border: 2px solid #3a6b35;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .quest-log-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px; color: #f5c518;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .quest-log-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, #3a6b35, transparent);
+  }
+
+  .log-entry {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(58, 107, 53, 0.3);
+    font-size: 12px;
+    animation: log-slide 0.3s ease;
+  }
+
+  @keyframes log-slide {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .log-entry:last-child { border-bottom: none; }
+
+  .log-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .log-time { color: #7aab6e; font-size: 10px; flex-shrink: 0; min-width: 50px; }
+  .log-text { color: #e8d5a3; line-height: 1.5; }
+
+  /* Agent 花名册 */
+  .agents-roster {
+    background: rgba(10, 30, 8, 0.85);
+    border: 2px solid #3a6b35;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .roster-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px; color: #f5c518;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .roster-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, #3a6b35, transparent);
+  }
+
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .agent-card {
+    background: rgba(5, 15, 5, 0.7);
+    border: 1px solid #2a4f27;
+    border-radius: 3px;
+    padding: 12px;
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+
+  .agent-card:hover {
+    border-color: #f5c518;
+    box-shadow: 0 0 10px rgba(245, 197, 24, 0.2);
+  }
+
+  .agent-avatar { font-size: 28px; margin-bottom: 6px; }
+  .agent-name {
+    font-size: 11px; color: #f5c518;
+    font-weight: 700; margin-bottom: 4px;
+  }
+  .agent-role { font-size: 10px; color: #7aab6e; margin-bottom: 6px; }
+  .agent-status {
+    font-size: 10px; padding: 2px 6px;
+    border-radius: 2px; display: inline-block;
+  }
+  .agent-status.online {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50; border: 1px solid #4caf50;
+  }
+  .agent-status.standby {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800; border: 1px solid #ff9800;
+  }
+
+  /* 状态切换按钮 */
+  .state-controls {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .state-btn {
+    background: rgba(10, 30, 8, 0.85);
+    border: 1px solid #3a6b35;
+    border-radius: 3px;
+    padding: 8px 14px;
+    color: #7aab6e;
+    font-size: 11px; cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans SC', sans-serif;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .state-btn:hover {
+    border-color: #f5c518; color: #f5c518;
+    background: rgba(245, 197, 24, 0.1);
+  }
+
+  .state-btn.active {
+    border-color: #f5c518; color: #f5c518;
+    background: rgba(245, 197, 24, 0.15);
+    box-shadow: 0 0 8px rgba(245, 197, 24, 0.2);
+  }
+
+  /* 底部装饰 */
+  .footer {
+    text-align: center; padding: 20px 0;
+    font-size: 10px; color: #3a6b35;
+    font-family: 'Press Start 2P', monospace;
+    letter-spacing: 1px;
+  }
+
+  /* 勇气之三角 闪烁装饰 */
+  .triforce-small {
+    display: inline-block;
+    animation: tri-glow 3s ease-in-out infinite alternate;
+  }
+  @keyframes tri-glow {
+    from { color: #3a6b35; }
+    to { color: #f5c518; }
+  }
+
+  /* 响应式 */
+  @media (max-width: 600px) {
+    .status-panel { grid-template-columns: 1fr; }
+    .agents-grid { grid-template-columns: repeat(2, 1fr); }
+    .header h1 { font-size: 10px; }
+  }
+</style>
 </head>
 <body>
-  <!-- HEADER -->
-  <header class="site-header">
-    <div class="triangle-logo">△</div>
-    <h1 class="site-title">HYRULE OFFICE</h1>
-    <p class="site-sub">West Bot 的海拉鲁传说 · Agent 状态指挥所</p>
-  </header>
 
-  <!-- GAME SCENE -->
-  <section class="game-scene" id="gameScene">
-    <div class="hearts">❤️ ❤️ ❤️</div>
-    <div class="diamonds">💎 <span id="diamondCount">260</span></div>
+<div class="stars"></div>
 
-    <div class="scene-world">
-      <div class="terrain-objects">
-        <span class="obj tree1">🌿</span>
-        <span class="obj rock">🪨</span>
-        <span class="obj bush">🌳</span>
-        <span class="obj grass1">🌾</span>
-        <span class="obj grass2">🌾</span>
-      </div>
+<div class="container">
 
-      <div class="hero-wrap" id="heroWrap">
-        <div class="speech-bubble" id="speechBubble">待命中...随时出发！</div>
-        <div class="hero-sprite">🧝</div>
-      </div>
+  <!-- 标题 -->
+  <div class="header">
+    <span class="triforce">△</span>
+    <h1>HYRULE OFFICE</h1>
+    <p>West Bot 的海拉鲁传说 · Agent 状态指挥所</p>
+  </div>
 
-      <div class="current-quest">
-        <div class="quest-label">▶ 当前任务</div>
-        <div class="quest-text" id="currentQuestText">探索神庙・整理记忆碎片</div>
-      </div>
-
-      <div class="terrain-bar"></div>
+  <!-- 主场景 -->
+  <div class="office-scene">
+    <!-- 心之容器 -->
+    <div class="hearts-bar">
+      <span class="heart" id="heart1">❤️</span>
+      <span class="heart" id="heart2">❤️</span>
+      <span class="heart" id="heart3">❤️</span>
     </div>
-  </section>
 
-  <!-- STATUS TABS -->
-  <nav class="status-tabs">
-    <button class="tab active" data-status="idle">🏕 待命</button>
-    <button class="tab" data-status="exploring">🔍 探索调研</button>
-    <button class="tab" data-status="executing">⚔️ 执行任务</button>
-    <button class="tab" data-status="docs">📋 整理文档</button>
-    <button class="tab" data-status="sync">💾 同步备份</button>
-    <button class="tab" data-status="boss">💀 遭遇了魔王</button>
-  </nav>
+    <!-- 卢比计数器 -->
+    <div class="rupees">💎 <span id="rupee-count">247</span></div>
 
-  <!-- INFO CARDS -->
-  <div class="cards-grid">
-    <div class="card">
-      <div class="card-label">» 当前状态</div>
-      <div class="card-value big" id="statusLabel">待命</div>
-      <div class="status-dot-wrap"><span class="dot green"></span><span id="statusDesc">在营地等待冒险召唤</span></div>
+    <!-- 场景装饰物件 -->
+    <div class="scene-objects">
+      <span class="pixel-tree">🌲</span>
+      <span class="pixel-tree" style="font-size:24px; animation-delay:0.5s">🌿</span>
+      <span style="font-size:20px">🪨</span>
+      <span class="pixel-tree" style="font-size:28px; animation-delay:1s">🌳</span>
     </div>
-    <div class="card">
-      <div class="card-label">● 当前时间</div>
-      <div class="card-value clock" id="clockTime">00:00:00</div>
-      <div class="card-date" id="clockDate">—</div>
+
+    <!-- 草地 -->
+    <div class="grass-decoration">
+      <span>🌾</span><span>🌾</span><span>🌾</span><span>🌾</span><span>🌾</span>
     </div>
-    <div class="card">
-      <div class="card-label">🏆 今日战绩</div>
-      <div class="card-value big" id="tasksDone">0</div>
+
+    <!-- 林克精灵（用canvas绘制像素风） -->
+    <div class="link-sprite" id="link-sprite">
+      <div class="speech-bubble" id="speech-bubble">待命中...随时出发！</div>
+      <canvas class="sprite-canvas" id="link-canvas" width="48" height="64"></canvas>
+    </div>
+
+    <!-- 当前任务 -->
+    <div class="quest-banner">
+      <span class="quest-label">▶ 当前任务</span>
+      <div class="quest-text" id="current-quest">探索神庙·整理记忆碎片</div>
+    </div>
+  </div>
+
+  <!-- 状态切换 -->
+  <div class="state-controls" id="state-controls">
+    <button class="state-btn active" onclick="setState('idle')" data-state="idle">🏕️ 待命</button>
+    <button class="state-btn" onclick="setState('researching')" data-state="researching">🔍 探索调研</button>
+    <button class="state-btn" onclick="setState('executing')" data-state="executing">⚔️ 执行任务</button>
+    <button class="state-btn" onclick="setState('writing')" data-state="writing">📜 整理文档</button>
+    <button class="state-btn" onclick="setState('syncing')" data-state="syncing">🔄 同步备份</button>
+    <button class="state-btn" onclick="setState('error')" data-state="error">💀 遭遇了魔王</button>
+  </div>
+
+  <!-- 数据面板 -->
+  <div class="status-panel">
+    <div class="status-card active" id="card-state">
+      <div class="card-title">⚡ 当前状态</div>
+      <div class="card-value" id="state-name">待命</div>
+      <div class="state-badge">
+        <div class="state-dot" id="state-dot"></div>
+        <span id="state-detail">在营地等待冒险召唤</span>
+      </div>
+    </div>
+
+    <div class="status-card" id="card-time">
+      <div class="card-title">⏱️ 当前时间</div>
+      <div class="card-value" id="current-time">--:--</div>
+      <div class="card-sub" id="current-date">海拉鲁历</div>
+    </div>
+
+    <div class="status-card" id="card-uptime">
+      <div class="card-title">🏆 今日战绩</div>
+      <div class="card-value" id="task-count">0</div>
       <div class="card-sub">任务已完成</div>
     </div>
-    <div class="card">
-      <div class="card-label">👥 勇者团</div>
-      <div class="card-value big" id="heroCount">6</div>
+
+    <div class="status-card" id="card-agents">
+      <div class="card-title">🧝 勇者团</div>
+      <div class="card-value">6</div>
       <div class="card-sub">名同伴在线</div>
     </div>
   </div>
 
-  <!-- HERO ROSTER -->
-  <section class="roster-section">
-    <div class="roster-title">⚔️ 勇者花名册</div>
-    <div class="roster-grid" id="rosterGrid">
-      <!-- populated by JS -->
+  <!-- Agent 花名册 -->
+  <div class="agents-roster">
+    <div class="roster-title">🗡️ 勇者花名册</div>
+    <div class="agents-grid">
+      <div class="agent-card">
+        <div class="agent-avatar">🤖</div>
+        <div class="agent-name">West Bot</div>
+        <div class="agent-role">主控·智慧之神</div>
+        <span class="agent-status online">在线</span>
+      </div>
+      <div class="agent-card">
+        <div class="agent-avatar">✍️</div>
+        <div class="agent-name">迅哥</div>
+        <div class="agent-role">写作·风之神庙</div>
+        <span class="agent-status online">在线</span>
+      </div>
+      <div class="agent-card">
+        <div class="agent-avatar">🌐</div>
+        <div class="agent-name">路飞</div>
+        <div class="agent-role">建站·水之神庙</div>
+        <span class="agent-status online">在线</span>
+      </div>
+      <div class="agent-card">
+        <div class="agent-avatar">🔗</div>
+        <div class="agent-name">外链助手</div>
+        <div class="agent-role">SEO·火之神庙</div>
+        <span class="agent-status standby">待命</span>
+      </div>
+      <div class="agent-card">
+        <div class="agent-avatar">📅</div>
+        <div class="agent-name">日程助理</div>
+        <div class="agent-role">日程·时之神庙</div>
+        <span class="agent-status online">在线</span>
+      </div>
+      <div class="agent-card">
+        <div class="agent-avatar">🗺️</div>
+        <div class="agent-name">EvoMap</div>
+        <div class="agent-role">进化·影之神庙</div>
+        <span class="agent-status online">在线</span>
+      </div>
     </div>
-  </section>
+  </div>
 
-  <script src="app.js"></script>
+  <!-- 任务日志 -->
+  <div class="quest-log">
+    <div class="quest-log-title">📖 冒险日志</div>
+    <div id="log-container">
+      <div class="log-entry">
+        <span class="log-icon">⭐</span>
+        <span class="log-time" id="log-time-1"></span>
+        <span class="log-text">系统初始化完成，海拉鲁办公室开门营业</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-icon">💎</span>
+        <span class="log-time" id="log-time-2"></span>
+        <span class="log-text">Google Calendar 成功对接，获得「时间之钥」</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-icon">🗡️</span>
+        <span class="log-time" id="log-time-3"></span>
+        <span class="log-text">全站流量数据拉取完成，7909名访客踏入海拉鲁</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-icon">📜</span>
+        <span class="log-time" id="log-time-4"></span>
+        <span class="log-text">workspace 备份推送至 GitHub，「记忆之石」安全存档</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="triforce-small">△</span> COURAGE · WISDOM · POWER <span class="triforce-small">△</span>
+    <br><br>WEST BOT · HYRULE OFFICE · 2026
+  </div>
+
+</div>
+
+<script>
+// ====== 状态配置 ======
+const STATES = {
+  idle: {
+    name: '待命',
+    detail: '在营地等待冒险召唤',
+    quest: '探索神庙·整理记忆碎片',
+    dotClass: '',
+    sprite: 'idle',
+    bubbles: [
+      '待命中...随时出发！',
+      '勇气之力，满格充能 ✨',
+      '草原风吹来...好舒服',
+      '海拉鲁今天天气不错',
+      '磨刀不误砍柴工 🗡️',
+      '等待下一个神庙开启',
+    ]
+  },
+  researching: {
+    name: '探索调研',
+    detail: '正在深入调查信息',
+    quest: '收集情报·解析地图碎片',
+    dotClass: 'busy',
+    sprite: 'research',
+    bubbles: [
+      '我在挖地图碎片...',
+      '情报收集中，勿扰 🔍',
+      '目标锁定，追踪中',
+      '找到了！关键线索在这',
+      '让证据说话 📜',
+    ]
+  },
+  executing: {
+    name: '执行任务',
+    detail: '持剑出征，全力以赴',
+    quest: '讨伐魔物·守护海拉鲁',
+    dotClass: 'busy',
+    sprite: 'attack',
+    bubbles: [
+      '进入战斗模式！⚔️',
+      '海亚！！！',
+      '一刀解决！',
+      '任务推进中，勿断电',
+      '让结果说话 💥',
+    ]
+  },
+  writing: {
+    name: '整理文档',
+    detail: '奋笔疾书，记录传说',
+    quest: '撰写传说·留存于石板',
+    dotClass: 'busy',
+    sprite: 'write',
+    bubbles: [
+      '进入专注模式：勿扰 📜',
+      '把知识刻进石板里',
+      '记录每一个冒险细节',
+      '稳住，我们能赢',
+      '先收敛，再发散',
+    ]
+  },
+  syncing: {
+    name: '同步备份',
+    detail: '将记忆存入时之神庙',
+    quest: '封印数据·守护记忆之石',
+    dotClass: 'busy',
+    sprite: 'sync',
+    bubbles: [
+      '同步中...别断电 ⚡',
+      '把今天锁进记忆之石',
+      '备份是对未来的承诺',
+      '时之神殿，接受！',
+      '云端对齐完成',
+    ]
+  },
+  error: {
+    name: '遭遇魔王',
+    detail: '系统异常，需要援军！',
+    quest: '紧急求援·寻找解法',
+    dotClass: 'error',
+    sprite: 'error',
+    bubbles: [
+      '警报！加侬多夫入侵！ 💀',
+      '需要援军...呼叫主人！',
+      '怎么回事...!',
+      '坚持住，我在处理',
+      '这不对劲...',
+    ]
+  }
+};
+
+let currentState = 'idle';
+let taskCount = 0;
+let bubbleTimer;
+let spriteAnimFrame = 0;
+let spriteTimer;
+
+// ====== 像素林克绘制 ======
+const COLORS = {
+  skin:    '#f4c98a',
+  hair:    '#c8860a',
+  hat:     '#3a7d2c',
+  hatDark: '#2a5d1c',
+  tunic:   '#3a7d2c',
+  pants:   '#c8a850',
+  boots:   '#6b3d1a',
+  sword:   '#c0c0c0',
+  shield:  '#1a6bc8',
+  shieldL: '#4a9af8',
+  eye:     '#2a1a0a',
+  outline: '#1a1a1a',
+};
+
+function drawLink(ctx, state, frame) {
+  ctx.clearRect(0, 0, 48, 64);
+  ctx.imageSmoothingEnabled = false;
+
+  const p = (x, y, w, h, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x*3, y*3, (w||1)*3, (h||1)*3);
+  };
+
+  const bobY = (state === 'idle' && frame % 2 === 0) ? 0 : 0;
+  const swordX = (state === 'attack') ? (frame % 4 < 2 ? 10 : 8) : 0;
+
+  // 帽子
+  p(5,1,6,1, COLORS.hatDark);
+  p(4,2,8,1, COLORS.hat);
+  p(4,3,8,3, COLORS.hat);
+  // 帽尖
+  p(9,0,2,1, COLORS.hatDark);
+  p(10,1,1,1, COLORS.hatDark);
+
+  // 脸
+  p(5,4,6,4, COLORS.skin);
+  // 眼睛
+  p(6,5,1,1, COLORS.eye);
+  p(9,5,1,1, COLORS.eye);
+  // 头发
+  p(5,4,1,1, COLORS.hair);
+  p(10,4,1,1, COLORS.hair);
+
+  // 身体（tunic）
+  p(4,8,8,5, COLORS.tunic);
+  // 腰带
+  p(4,12,8,1, COLORS.hair);
+
+  // 手臂
+  if (state === 'attack') {
+    // 右臂持剑
+    p(12,8,2,3, COLORS.skin);
+    p(13,5,1,4, COLORS.sword); // 剑
+    p(12,8,2,1, COLORS.hair);  // 护手
+    // 左臂
+    p(2,8,2,3, COLORS.skin);
+  } else if (state === 'write') {
+    // 写字姿势
+    p(12,9,2,3, COLORS.skin);
+    p(13,11,1,2, COLORS.hair); // 笔
+    p(2,8,2,4, COLORS.skin);
+  } else {
+    p(2,8,2,4, COLORS.skin);
+    p(12,8,2,4, COLORS.skin);
+  }
+
+  // 盾牌（左侧）
+  if (state !== 'write' && state !== 'sync') {
+    p(1,8,3,5, COLORS.shield);
+    p(1,8,3,1, COLORS.shieldL);
+    p(2,9,1,1, COLORS.shieldL);
+  }
+
+  // 腿
+  p(4,13,3,4, COLORS.pants);
+  p(9,13,3,4, COLORS.pants);
+
+  // 靴子
+  p(4,17,3,2, COLORS.boots);
+  p(9,17,3,2, COLORS.boots);
+
+  // 状态特效
+  if (state === 'error') {
+    // 红色闪烁轮廓
+    ctx.strokeStyle = frame % 2 === 0 ? '#f44336' : 'transparent';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(3*3, 0, 12*3, 19*3);
+  }
+
+  if (state === 'sync') {
+    // 蓝色光环
+    ctx.strokeStyle = `rgba(79, 195, 247, ${0.3 + 0.4 * Math.sin(frame * 0.3)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(8*3, 9*3, 7*3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function startSpriteAnimation(state) {
+  clearInterval(spriteTimer);
+  spriteAnimFrame = 0;
+  const canvas = document.getElementById('link-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const spriteState = {
+    idle: 'idle', researching: 'idle', executing: 'attack',
+    writing: 'write', syncing: 'sync', error: 'error'
+  }[state] || 'idle';
+
+  spriteTimer = setInterval(() => {
+    spriteAnimFrame++;
+    drawLink(ctx, spriteState, spriteAnimFrame);
+  }, 300);
+
+  drawLink(ctx, spriteState, 0);
+}
+
+// ====== 状态切换 ======
+function setState(state) {
+  currentState = state;
+  const cfg = STATES[state];
+
+  // 更新 UI
+  document.getElementById('state-name').textContent = cfg.name;
+  document.getElementById('state-detail').textContent = cfg.detail;
+  document.getElementById('current-quest').textContent = cfg.quest;
+
+  const dot = document.getElementById('state-dot');
+  dot.className = 'state-dot ' + cfg.dotClass;
+
+  // 切换按钮
+  document.querySelectorAll('.state-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.state === state);
+  });
+
+  // 精灵动画
+  startSpriteAnimation(state);
+
+  // 随机气泡
+  startBubbleCycle(cfg.bubbles);
+
+  // 任务计数
+  if (state !== 'idle' && state !== 'error') {
+    taskCount++;
+    document.getElementById('task-count').textContent = taskCount;
+  }
+
+  // 写日志
+  addLogEntry(state, cfg);
+
+  // 卢比变化
+  if (state === 'executing') {
+    let r = parseInt(document.getElementById('rupee-count').textContent);
+    document.getElementById('rupee-count').textContent = r + Math.floor(Math.random() * 20 + 5);
+  }
+}
+
+// ====== 气泡循环 ======
+function startBubbleCycle(bubbles) {
+  clearInterval(bubbleTimer);
+  const bubble = document.getElementById('speech-bubble');
+
+  const showRandom = () => {
+    bubble.style.animation = 'none';
+    bubble.offsetHeight; // reflow
+    bubble.style.animation = 'bubble-appear 0.3s ease';
+    bubble.textContent = bubbles[Math.floor(Math.random() * bubbles.length)];
+  };
+
+  showRandom();
+  bubbleTimer = setInterval(showRandom, 4000);
+}
+
+// ====== 日志 ======
+function addLogEntry(state, cfg) {
+  const icons = {
+    idle: '🏕️', researching: '🔍', executing: '⚔️',
+    writing: '📜', syncing: '🔄', error: '💀'
+  };
+
+  const messages = {
+    idle: '返回营地，进入待命状态',
+    researching: '深入神庙，开始情报收集',
+    executing: '拔剑出鞘，任务执行中',
+    writing: '取出石板，开始记录传说',
+    syncing: '激活时之神庙，同步记忆中',
+    error: '警报！系统遭遇异常！'
+  };
+
+  const container = document.getElementById('log-container');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  entry.innerHTML = `
+    <span class="log-icon">${icons[state]}</span>
+    <span class="log-time">${time}</span>
+    <span class="log-text">${messages[state]}</span>
+  `;
+
+  container.insertBefore(entry, container.firstChild);
+
+  // 最多保留8条
+  while (container.children.length > 8) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+// ====== 时钟 ======
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  const s = now.getSeconds().toString().padStart(2,'0');
+  document.getElementById('current-time').textContent = `${h}:${m}:${s}`;
+
+  const days = ['日', '月', '火', '水', '木', '金', '土'];
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 (${days[now.getDay()]})`;
+  document.getElementById('current-date').textContent = dateStr;
+}
+
+// ====== 初始化日志时间 ======
+function initLogTimes() {
+  const now = new Date();
+  const times = [
+    new Date(now - 30*60000),
+    new Date(now - 20*60000),
+    new Date(now - 10*60000),
+    new Date(now - 5*60000),
+  ];
+  times.forEach((t, i) => {
+    const el = document.getElementById(`log-time-${i+1}`);
+    if (el) el.textContent = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+  });
+}
+
+// ====== 启动 ======
+initLogTimes();
+updateClock();
+setInterval(updateClock, 1000);
+startSpriteAnimation('idle');
+startBubbleCycle(STATES.idle.bubbles);
+
+// 随机环境效果：偶尔心跳动画
+setInterval(() => {
+  const hearts = ['heart1','heart2','heart3'];
+  const h = document.getElementById(hearts[Math.floor(Math.random()*3)]);
+  h.style.transform = 'scale(1.4)';
+  setTimeout(() => h.style.transform = '', 200);
+}, 3000);
+</script>
 </body>
 </html>
