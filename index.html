@@ -988,7 +988,7 @@ setInterval(() => {
 }, 3000);
 
 // ====== 实时数据对接 ======
-const API_BASE = 'http://127.0.0.1:8901';
+const API_BASE = ''; // 同源，相对路径
 
 const STATUS_MAP = {
   active:  { badge: '在线', cls: 'online',  dot: '' },
@@ -1083,7 +1083,7 @@ function applyLiveData(data) {
 
 async function fetchLiveStatus() {
   try {
-    const res = await fetch(`${API_BASE}/status`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${API_BASE}/api/status`, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return;
     const data = await res.json();
     applyLiveData(data);
