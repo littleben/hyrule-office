@@ -1,0 +1,12 @@
+# 环境配置（不提交）
+.env
+*.env
+secrets.env
+
+# 运行时
+*.log
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store

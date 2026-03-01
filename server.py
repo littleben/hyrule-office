@@ -116,7 +116,11 @@ def get_token_stats():
 
 def get_clawfeed():
     try:
-        url = 'http://127.0.0.1:8767/api/digests?limit=1&key=64cf587fe57cd7192ebc80c5d05f66da'
+        # Key 仅用于访问本机 127.0.0.1:8767，无法从外网访问
+        # 如需自定义，设置环境变量 CLAWFEED_KEY
+        import os
+        key = os.environ.get('CLAWFEED_KEY', 'CLAWFEED_KEY_HERE')
+        url = f'http://127.0.0.1:8767/api/digests?limit=1&key={key}'
         with urlopen(url, timeout=2) as r:
             data = json.loads(r.read())
         if not data:
