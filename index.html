@@ -375,6 +375,27 @@
     background: rgba(255, 152, 0, 0.2);
     color: #ff9800; border: 1px solid #ff9800;
   }
+  .agent-status.offline {
+    background: rgba(100, 100, 100, 0.2);
+    color: #666; border: 1px solid #444;
+  }
+  .clawfeed-bar {
+    background: rgba(10, 30, 8, 0.85);
+    border: 1px solid #3a6b35;
+    border-radius: 4px;
+    padding: 10px 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #7aab6e;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .clawfeed-bar .cf-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #f5c518;
+  }
 
   /* 状态切换按钮 */
   .state-controls {
@@ -562,10 +583,13 @@
         <div class="agent-role">进化·影之神庙</div>
         <span class="agent-status online">在线</span>
       </div>
-    </div>
-  </div>
+    </div><!-- agents-grid end -->
 
-  <!-- 任务日志 -->
+    <div class="clawfeed-bar">
+      <span class="cf-label">☀️ CLAWFEED</span>
+      <span id="clawfeed-status">加载中...</span>
+    </div>
+  </div><!-- agents-roster end -->
   <div class="quest-log">
     <div class="quest-log-title">📖 冒险日志</div>
     <div id="log-container">
@@ -950,6 +974,98 @@ setInterval(() => {
   h.style.transform = 'scale(1.4)';
   setTimeout(() => h.style.transform = '', 200);
 }, 3000);
+
+// ====== 实时数据对接 ======
+const API_BASE = 'http://127.0.0.1:8901';
+
+const STATUS_MAP = {
+  active:  { badge: '在线', cls: 'online',  dot: '' },
+  online:  { badge: '在线', cls: 'online',  dot: '' },
+  idle:    { badge: '待命', cls: 'standby', dot: '' },
+  offline: { badge: '离线', cls: 'offline', dot: '' },
+};
+
+function timeAgo(ms) {
+  if (!ms) return '从未';
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60)   return `${s}秒前`;
+  if (s < 3600) return `${Math.floor(s/60)}分钟前`;
+  if (s < 86400) return `${Math.floor(s/3600)}小时前`;
+  return `${Math.floor(s/86400)}天前`;
+}
+
+function applyLiveData(data) {
+  // 更新勇者团在线数
+  document.getElementById('card-agents').querySelector('.card-value').textContent = data.onlineCount;
+
+  // 重建 agent 花名册
+  const grid = document.querySelector('.agents-grid');
+  if (grid && data.agents) {
+    grid.innerHTML = '';
+    data.agents.forEach(a => {
+      const s = STATUS_MAP[a.status] || STATUS_MAP.offline;
+      const card = document.createElement('div');
+      card.className = 'agent-card';
+      card.title = `最后活跃：${timeAgo(a.lastActiveMs)}`;
+      card.innerHTML = `
+        <div class="agent-avatar">${a.avatar}</div>
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-role">${a.role}</div>
+        <span class="agent-status ${s.cls}">${s.badge}</span>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // Cron 日志注入到冒险日志
+  if (data.recentCrons?.length) {
+    const container = document.getElementById('log-container');
+    // 只在首次加载时插入，避免重复
+    if (!container.dataset.cronLoaded) {
+      container.dataset.cronLoaded = '1';
+      // 清空占位条目
+      container.innerHTML = '';
+      data.recentCrons.forEach(job => {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const t = new Date(job.lastRunAtMs);
+        const time = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+        const icon = job.lastStatus === 'ok' ? '✅' : '⚠️';
+        entry.innerHTML = `
+          <span class="log-icon">${icon}</span>
+          <span class="log-time">${time}</span>
+          <span class="log-text">[${job.agentId}] ${job.name}</span>
+        `;
+        container.appendChild(entry);
+      });
+    }
+  }
+
+  // ClawFeed 状态
+  if (data.clawfeed) {
+    const d = data.clawfeed;
+    const cf = document.getElementById('clawfeed-status');
+    if (cf) {
+      const t = new Date(d.created_at + 'Z');
+      cf.textContent = `HN×${d.hn_count || '?'} · GH×${d.github_count || '?'} · ${timeAgo(t.getTime())}`;
+    }
+  }
+}
+
+async function fetchLiveStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/status`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    applyLiveData(data);
+  } catch {
+    // API 不可用时静默失败，保持静态默认值
+  }
+}
+
+// 加载时立即拉一次，之后每 30 秒刷新
+fetchLiveStatus();
+setInterval(fetchLiveStatus, 30000);
 </script>
 </body>
 </html>

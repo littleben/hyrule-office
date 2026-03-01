@@ -1,0 +1,14 @@
+[Unit]
+Description=Hyrule Office Status API
+After=network.target
+
+[Service]
+Type=simple
+User=littlebot
+WorkingDirectory=/home/littlebot/hyrule-office
+ExecStart=/usr/bin/node /home/littlebot/hyrule-office/api-server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
