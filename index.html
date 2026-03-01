@@ -1109,9 +1109,10 @@ function applyLiveData(data) {
     const tc = document.getElementById('token-count');
     const tco = document.getElementById('token-cost');
     if (tc) tc.textContent = fmt;
-    // 只展示有实际计费的部分，标注"已计费"避免误导
-    const cost = data.tokens.totalCost;
-    if (tco) tco.textContent = cost > 0 ? `已计费 $${cost.toFixed(4)}` : '免费 API（无计费）';
+    if (tco) {
+      const est = data.tokens.estimatedCost;
+      tco.textContent = est > 0 ? `≈ $${est.toFixed(2)} 估算` : '计算中...';
+    }
   }
 
   // Cron 卡片

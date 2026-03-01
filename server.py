@@ -95,14 +95,27 @@ def get_cron_stats():
         return {'total': 0, 'enabled': 0, 'todayRuns': 0, 'recent': []}
 
 def get_token_stats():
+    # 官方定价 $/1M tokens
+    PRICING = {
+        'claude-sonnet-4-6':          {'in': 3.0,  'out': 15.0,  'cr': 0.30,  'cw': 3.75},
+        'claude-sonnet-4-5-20250929': {'in': 3.0,  'out': 15.0,  'cr': 0.30,  'cw': 3.75},
+        'claude-opus-4-6-20260205':   {'in': 15.0, 'out': 75.0,  'cr': 1.50,  'cw': 18.75},
+        'claude-opus-4-20250514':     {'in': 15.0, 'out': 75.0,  'cr': 1.50,  'cw': 18.75},
+        'gpt-5.3-codex':              {'in': 2.5,  'out': 10.0,  'cr': 1.25,  'cw': 0.0},
+    }
+    DEFAULT_PRICE = {'in': 3.0, 'out': 15.0, 'cr': 0.30, 'cw': 3.75}
+
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    total_tokens, total_cost = 0, 0.0
+    total_tokens = 0
+    recorded_cost = 0.0   # API 返回的 cost（可能为 0）
+    estimated_cost = 0.0  # 按官方定价估算
     by_agent = {}
+
     for agent_dir in (OPENCLAW / 'agents').iterdir():
         sess_dir = agent_dir / 'sessions'
         if not sess_dir.exists():
             continue
-        a_tokens, a_cost = 0, 0.0
+        a_tokens, a_recorded, a_estimated = 0, 0.0, 0.0
         for f in sess_dir.glob('*.jsonl'):
             if '.deleted.' in f.name:
                 continue
@@ -111,18 +124,41 @@ def get_token_stats():
                     d = json.loads(line)
                     if not d.get('timestamp', '').startswith(today):
                         continue
-                    usage = (d.get('message') or {}).get('usage')
-                    if usage:
-                        a_tokens += usage.get('totalTokens', 0)
-                        a_cost += (usage.get('cost') or {}).get('total', 0)
+                    msg = d.get('message') or {}
+                    usage = msg.get('usage')
+                    if not usage:
+                        continue
+                    model = msg.get('model') or msg.get('modelId') or ''
+                    p = PRICING.get(model, DEFAULT_PRICE)
+                    inp = usage.get('input', 0)
+                    out = usage.get('output', 0)
+                    cr  = usage.get('cacheRead', 0)
+                    cw  = usage.get('cacheWrite', 0)
+                    tok = usage.get('totalTokens', inp + out + cr + cw)
+                    est = (inp/1e6*p['in'] + out/1e6*p['out'] +
+                           cr/1e6*p['cr'] + cw/1e6*p['cw'])
+                    a_tokens    += tok
+                    a_recorded  += (usage.get('cost') or {}).get('total', 0)
+                    a_estimated += est
             except:
                 pass
         if a_tokens:
-            by_agent[agent_dir.name] = {'tokens': a_tokens, 'cost': round(a_cost, 4)}
-            total_tokens += a_tokens
-            total_cost += a_cost
-    return {'totalTokens': total_tokens, 'totalCost': round(total_cost, 4),
-            'hasBilling': total_cost > 0, 'byAgent': by_agent}
+            by_agent[agent_dir.name] = {
+                'tokens': a_tokens,
+                'cost': round(a_recorded, 4),
+                'estimatedCost': round(a_estimated, 4),
+            }
+            total_tokens    += a_tokens
+            recorded_cost   += a_recorded
+            estimated_cost  += a_estimated
+
+    return {
+        'totalTokens':    total_tokens,
+        'totalCost':      round(recorded_cost, 4),
+        'estimatedCost':  round(estimated_cost, 4),
+        'hasBilling':     recorded_cost > 0,
+        'byAgent':        by_agent,
+    }
 
 def get_clawfeed():
     try:
