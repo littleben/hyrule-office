@@ -1,14 +1,13 @@
 [Unit]
-Description=Hyrule Office Status API
+Description=Hyrule Office Status API (Python)
 After=network.target
 
 [Service]
 Type=simple
-User=littlebot
 WorkingDirectory=/home/littlebot/hyrule-office
-ExecStart=/usr/bin/node /home/littlebot/hyrule-office/api-server.mjs
+ExecStart=/usr/bin/python3 /home/littlebot/hyrule-office/api-server.py
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
