@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hyrule Office — Agent 状态指挥所</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="triangle-logo">△</div>
+    <h1 class="site-title">HYRULE OFFICE</h1>
+    <p class="site-sub">West Bot 的海拉鲁传说 · Agent 状态指挥所</p>
+  </header>
+
+  <!-- GAME SCENE -->
+  <section class="game-scene" id="gameScene">
+    <div class="hearts">❤️ ❤️ ❤️</div>
+    <div class="diamonds">💎 <span id="diamondCount">260</span></div>
+
+    <div class="scene-world">
+      <div class="terrain-objects">
+        <span class="obj tree1">🌿</span>
+        <span class="obj rock">🪨</span>
+        <span class="obj bush">🌳</span>
+        <span class="obj grass1">🌾</span>
+        <span class="obj grass2">🌾</span>
+      </div>
+
+      <div class="hero-wrap" id="heroWrap">
+        <div class="speech-bubble" id="speechBubble">待命中...随时出发！</div>
+        <div class="hero-sprite">🧝</div>
+      </div>
+
+      <div class="current-quest">
+        <div class="quest-label">▶ 当前任务</div>
+        <div class="quest-text" id="currentQuestText">探索神庙・整理记忆碎片</div>
+      </div>
+
+      <div class="terrain-bar"></div>
+    </div>
+  </section>
+
+  <!-- STATUS TABS -->
+  <nav class="status-tabs">
+    <button class="tab active" data-status="idle">🏕 待命</button>
+    <button class="tab" data-status="exploring">🔍 探索调研</button>
+    <button class="tab" data-status="executing">⚔️ 执行任务</button>
+    <button class="tab" data-status="docs">📋 整理文档</button>
+    <button class="tab" data-status="sync">💾 同步备份</button>
+    <button class="tab" data-status="boss">💀 遭遇了魔王</button>
+  </nav>
+
+  <!-- INFO CARDS -->
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-label">» 当前状态</div>
+      <div class="card-value big" id="statusLabel">待命</div>
+      <div class="status-dot-wrap"><span class="dot green"></span><span id="statusDesc">在营地等待冒险召唤</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">● 当前时间</div>
+      <div class="card-value clock" id="clockTime">00:00:00</div>
+      <div class="card-date" id="clockDate">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">🏆 今日战绩</div>
+      <div class="card-value big" id="tasksDone">0</div>
+      <div class="card-sub">任务已完成</div>
+    </div>
+    <div class="card">
+      <div class="card-label">👥 勇者团</div>
+      <div class="card-value big" id="heroCount">6</div>
+      <div class="card-sub">名同伴在线</div>
+    </div>
+  </div>
+
+  <!-- HERO ROSTER -->
+  <section class="roster-section">
+    <div class="roster-title">⚔️ 勇者花名册</div>
+    <div class="roster-grid" id="rosterGrid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
