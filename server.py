@@ -121,7 +121,8 @@ def get_token_stats():
             by_agent[agent_dir.name] = {'tokens': a_tokens, 'cost': round(a_cost, 4)}
             total_tokens += a_tokens
             total_cost += a_cost
-    return {'totalTokens': total_tokens, 'totalCost': round(total_cost, 4), 'byAgent': by_agent}
+    return {'totalTokens': total_tokens, 'totalCost': round(total_cost, 4),
+            'hasBilling': total_cost > 0, 'byAgent': by_agent}
 
 def get_clawfeed():
     try:
