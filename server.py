@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """
 Hyrule Office — All-in-one server
-静态文件 + /api/status + /api/health
-Port: 8899  |  绑定 0.0.0.0（外网可访问）
+静态文件 + /api/status + /api/health + /api/set_state + /api/yesterday-memo
+Port: 8899  |  绑定 0.0.0.0
+
+Inspired by Star Office UI: https://github.com/ringhyacinth/Star-Office-UI
 """
-import json, time
+import json, time, os, re
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.request import urlopen
 from pathlib import Path
-from datetime import datetime, timezone
-import os
+from datetime import datetime, timezone, timedelta
 
-HOME     = Path.home()
-OPENCLAW = HOME / '.openclaw'
-PORT     = 8899
-SERVE_DIR = Path(__file__).parent  # 同目录下的静态文件
+HOME      = Path.home()
+OPENCLAW  = HOME / '.openclaw'
+PORT      = 8899
+SERVE_DIR = Path(__file__).parent
+
+# 主 Agent 状态（内存中，重启清零）
+_agent_state = {
+    'status':  'idle',
+    'message': '待命中...随时出发！',
+    'updatedAt': int(time.time() * 1000),
+}
 
 AGENTS = [
     {'id': 'main',             'name': 'West Bot',    'role': '主控・智慧之神', 'avatar': '🤖'},
@@ -70,7 +78,7 @@ def get_cron_stats():
         all_runs.sort(key=lambda x: x.get('ts', 0), reverse=True)
         job_map = {j['id']: j for j in jobs}
         recent = []
-        for run in all_runs[:5]:
+        for run in all_runs[:8]:
             jid = run.get('jobId', '')
             job = job_map.get(jid, {})
             recent.append({
@@ -80,6 +88,7 @@ def get_cron_stats():
                 'lastRunAtMs': run.get('ts'),
                 'lastStatus': run.get('status', '?'),
                 'enabled': job.get('enabled', True),
+                'summary': (run.get('summary') or '')[:120],
             })
         return {'total': len(jobs), 'enabled': enabled, 'todayRuns': run_count, 'recent': recent}
     except:
@@ -116,9 +125,6 @@ def get_token_stats():
 
 def get_clawfeed():
     try:
-        # Key 仅用于访问本机 127.0.0.1:8767，无法从外网访问
-        # 如需自定义，设置环境变量 CLAWFEED_KEY
-        import os
         key = os.environ.get('CLAWFEED_KEY', 'CLAWFEED_KEY_HERE')
         url = f'http://127.0.0.1:8767/api/digests?limit=1&key={key}'
         with urlopen(url, timeout=2) as r:
@@ -132,6 +138,54 @@ def get_clawfeed():
     except:
         return None
 
+def get_yesterday_memo():
+    """从 memory/*.md 读取昨日小记，脱敏后返回"""
+    mem_dir = OPENCLAW / 'workspace' / 'memory'
+    if not mem_dir.exists():
+        mem_dir = HOME / 'go-to-wild' / 'auto-writing-system' / 'memory'
+    if not mem_dir.exists():
+        return None
+
+    # 找昨天或最近一天的日记
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    target = None
+    for date in [yesterday, today]:
+        p = mem_dir / f'{date}.md'
+        if p.exists():
+            target = p
+            break
+
+    if not target:
+        # 找最近的一个
+        files = sorted(mem_dir.glob('????-??-??.md'), reverse=True)
+        if files:
+            target = files[0]
+
+    if not target:
+        return None
+
+    try:
+        content = target.read_text(encoding='utf-8')
+        # 基础脱敏：去掉 API key / token / 密码行
+        lines = content.splitlines()
+        clean = []
+        for line in lines:
+            if re.search(r'(api.?key|token|secret|password|sk-|bearer)\s*[:=]', line, re.I):
+                continue
+            clean.append(line)
+        text = '\n'.join(clean).strip()
+        # 截取前 600 字
+        if len(text) > 600:
+            text = text[:600] + '…'
+        return {
+            'date': target.stem,
+            'content': text,
+        }
+    except:
+        return None
+
 def build_status():
     agents = []
     for a in AGENTS:
@@ -141,6 +195,7 @@ def build_status():
     cron = get_cron_stats()
     return {
         'ts': int(time.time() * 1000),
+        'agentState': _agent_state,
         'agents': agents,
         'onlineCount': online,
         'cron': cron,
@@ -156,24 +211,60 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(SERVE_DIR), **kwargs)
 
     def log_message(self, fmt, *args):
-        pass  # 静默
+        pass
+
+    def send_json(self, data, status=200):
+        body = json.dumps(data, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
 
     def do_GET(self):
-        if self.path in ('/api/status', '/api/health'):
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            if self.path == '/api/health':
-                self.wfile.write(b'{"ok":true}')
-            else:
-                self.wfile.write(json.dumps(build_status(), ensure_ascii=False).encode())
+        path = self.path.split('?')[0]
+        if path == '/api/health':
+            self.send_json({'ok': True})
+        elif path == '/api/status':
+            self.send_json(build_status())
+        elif path == '/api/yesterday-memo':
+            memo = get_yesterday_memo()
+            self.send_json(memo or {'date': None, 'content': '暂无记录'})
         else:
             super().do_GET()
+
+    def do_POST(self):
+        path = self.path.split('?')[0]
+        if path == '/api/set_state':
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                body = json.loads(self.rfile.read(length) if length else b'{}')
+                allowed = {'idle','researching','executing','writing','syncing','error'}
+                state = body.get('status', 'idle')
+                if state not in allowed:
+                    self.send_json({'error': f'invalid status, allowed: {allowed}'}, 400)
+                    return
+                _agent_state['status']    = state
+                _agent_state['message']   = body.get('message', '')
+                _agent_state['updatedAt'] = int(time.time() * 1000)
+                self.send_json({'ok': True, 'state': _agent_state})
+            except Exception as e:
+                self.send_json({'error': str(e)}, 500)
+        else:
+            self.send_json({'error': 'not found'}, 404)
 
 if __name__ == '__main__':
     os.chdir(SERVE_DIR)
     server = HTTPServer(('0.0.0.0', PORT), Handler)
     print(f'Hyrule Office → http://0.0.0.0:{PORT}')
-    print(f'API → http://0.0.0.0:{PORT}/api/status')
+    print(f'API  → http://0.0.0.0:{PORT}/api/status')
+    print(f'Memo → http://0.0.0.0:{PORT}/api/yesterday-memo')
     server.serve_forever()

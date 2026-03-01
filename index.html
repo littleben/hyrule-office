@@ -444,11 +444,70 @@
     to { color: #f5c518; }
   }
 
+  /* 昨日小记 */
+  .memo-card {
+    background: rgba(10, 30, 8, 0.85);
+    border: 2px solid #3a6b35;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .memo-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px; color: #f5c518;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .memo-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, #3a6b35, transparent);
+  }
+  .memo-date {
+    font-size: 10px; color: #7aab6e;
+    margin-bottom: 10px;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .memo-content {
+    font-size: 12px; color: #c8d8a0;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    border-left: 2px solid #3a6b35;
+    padding-left: 12px;
+  }
+  .memo-content::-webkit-scrollbar { width: 4px; }
+  .memo-content::-webkit-scrollbar-track { background: transparent; }
+  .memo-content::-webkit-scrollbar-thumb { background: #3a6b35; border-radius: 2px; }
+
+  /* 日志摘要 tooltip */
+  .log-summary {
+    font-size: 10px;
+    color: #7aab6e;
+    margin-top: 2px;
+    font-style: italic;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 更新时间戳 */
+  .live-badge {
+    font-size: 9px;
+    color: #4caf50;
+    float: right;
+    margin-top: 2px;
+    font-family: 'Press Start 2P', monospace;
+  }
+
   /* 响应式 */
   @media (max-width: 600px) {
     .status-panel { grid-template-columns: 1fr 1fr; }
     .agents-grid { grid-template-columns: repeat(2, 1fr); }
     .header h1 { font-size: 10px; }
+    .quest-banner { display: none; }
+    .office-scene { min-height: 200px; }
   }
 </style>
 </head>
@@ -626,6 +685,13 @@
         <span class="log-text">workspace 备份推送至 GitHub，「记忆之石」安全存档</span>
       </div>
     </div>
+  </div>
+
+  <!-- 昨日小记 -->
+  <div class="memo-card">
+    <div class="memo-title">📝 昨日小记</div>
+    <div class="memo-date" id="memo-date">加载中...</div>
+    <div class="memo-content" id="memo-content">—</div>
   </div>
 
   <div class="footer">
@@ -1000,21 +1066,46 @@ const STATUS_MAP = {
 function timeAgo(ms) {
   if (!ms) return '从未';
   const s = Math.floor((Date.now() - ms) / 1000);
-  if (s < 60)   return `${s}秒前`;
-  if (s < 3600) return `${Math.floor(s/60)}分钟前`;
+  if (s < 60)    return `${s}秒前`;
+  if (s < 3600)  return `${Math.floor(s/60)}分钟前`;
   if (s < 86400) return `${Math.floor(s/3600)}小时前`;
   return `${Math.floor(s/86400)}天前`;
 }
 
 function applyLiveData(data) {
-  // 更新勇者团在线数
+  // live badge
+  const now = new Date();
+  const hm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  // 勇者团在线数
   const onlineEl = document.getElementById('online-count');
   if (onlineEl) onlineEl.textContent = data.onlineCount;
+
+  // 主 Agent 状态同步（agentState 来自 /api/set_state）
+  if (data.agentState) {
+    const as = data.agentState;
+    const stateKey = as.status || 'idle';
+    const cfg = STATES[stateKey] || STATES.idle;
+    // 只更新状态卡片，不覆盖手动切换的场景动画
+    document.getElementById('state-name').textContent = cfg.name;
+    document.getElementById('state-detail').textContent = cfg.detail;
+    const dot = document.getElementById('state-dot');
+    if (dot) dot.className = 'state-dot ' + cfg.dotClass;
+    // 气泡用 agentState.message 优先
+    if (as.message) {
+      const bubble = document.getElementById('speech-bubble');
+      if (bubble) { bubble.textContent = as.message; }
+    }
+    // 同步状态按钮高亮
+    document.querySelectorAll('.state-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.state === stateKey);
+    });
+  }
 
   // Token 卡片
   if (data.tokens) {
     const t = data.tokens.totalTokens;
-    const fmt = t >= 1e6 ? (t/1e6).toFixed(1)+'M' : t >= 1e3 ? (t/1e3).toFixed(0)+'K' : t;
+    const fmt = t >= 1e6 ? (t/1e6).toFixed(1)+'M' : t >= 1e3 ? (t/1e3).toFixed(0)+'K' : String(t);
     const tc = document.getElementById('token-count');
     const tco = document.getElementById('token-cost');
     if (tc) tc.textContent = fmt;
@@ -1026,10 +1117,10 @@ function applyLiveData(data) {
     const cr = document.getElementById('cron-runs');
     const cm = document.getElementById('cron-meta');
     if (cr) cr.textContent = data.cron.todayRuns + ' 次';
-    if (cm) cm.textContent = `${data.cron.enabled}/${data.cron.total} 个任务启用`;
+    if (cm) cm.textContent = `${data.cron.enabled}/${data.cron.total} 任务启用`;
   }
 
-  // 重建 agent 花名册
+  // Agent 花名册
   const grid = document.querySelector('.agents-grid');
   if (grid && data.agents) {
     grid.innerHTML = '';
@@ -1043,31 +1134,30 @@ function applyLiveData(data) {
         <div class="agent-name">${a.name}</div>
         <div class="agent-role">${a.role}</div>
         <span class="agent-status ${s.cls}">${s.badge}</span>
+        <div style="font-size:9px;color:#555;margin-top:4px">${timeAgo(a.lastActiveMs)}</div>
       `;
       grid.appendChild(card);
     });
   }
 
-  // Cron 日志注入冒险日志
+  // 冒险日志（Cron 运行记录，每次刷新更新）
   if (data.cron?.recent?.length) {
     const container = document.getElementById('log-container');
-    if (!container.dataset.cronLoaded) {
-      container.dataset.cronLoaded = '1';
-      container.innerHTML = '';
-      data.cron.recent.forEach(job => {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        const t = new Date(job.lastRunAtMs);
-        const time = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
-        const icon = job.lastStatus === 'ok' ? '✅' : '⚠️';
-        entry.innerHTML = `
-          <span class="log-icon">${icon}</span>
-          <span class="log-time">${time}</span>
-          <span class="log-text">[${job.agentId}] ${job.name}</span>
-        `;
-        container.appendChild(entry);
-      });
-    }
+    container.innerHTML = '';
+    data.cron.recent.forEach(job => {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      const t = new Date(job.lastRunAtMs);
+      const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+      const icon = job.lastStatus === 'ok' ? '✅' : '⚠️';
+      const summary = job.summary ? `<div class="log-summary">${job.summary.replace(/[#*`]/g,'')}</div>` : '';
+      entry.innerHTML = `
+        <span class="log-icon">${icon}</span>
+        <span class="log-time">${timeStr}</span>
+        <div style="flex:1"><div class="log-text">[${job.agentId}] ${job.name}</div>${summary}</div>
+      `;
+      container.appendChild(entry);
+    });
   }
 
   // ClawFeed 状态
@@ -1075,9 +1165,25 @@ function applyLiveData(data) {
     const d = data.clawfeed;
     const cf = document.getElementById('clawfeed-status');
     if (cf) {
-      const t = new Date(d.created_at + 'Z');
+      const t = new Date(d.created_at.replace(' ', 'T') + 'Z');
       cf.textContent = `HN×${d.hn_count || '?'} · GH×${d.github_count || '?'} · ${timeAgo(t.getTime())}`;
     }
+  }
+}
+
+// 拉取昨日小记（独立请求，不影响主 status）
+async function fetchYesterdayMemo() {
+  try {
+    const res = await fetch(`${API_BASE}/api/yesterday-memo`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    const dateEl = document.getElementById('memo-date');
+    const contentEl = document.getElementById('memo-content');
+    if (dateEl) dateEl.textContent = data.date ? `📅 ${data.date}` : '暂无记录';
+    if (contentEl) contentEl.textContent = data.content || '—';
+  } catch {
+    const contentEl = document.getElementById('memo-content');
+    if (contentEl) contentEl.textContent = '（无法连接到本地 API）';
   }
 }
 
@@ -1088,13 +1194,15 @@ async function fetchLiveStatus() {
     const data = await res.json();
     applyLiveData(data);
   } catch {
-    // API 不可用时静默失败，保持静态默认值
+    // API 不可用时静默失败
   }
 }
 
-// 加载时立即拉一次，之后每 30 秒刷新
+// 启动
 fetchLiveStatus();
+fetchYesterdayMemo();
 setInterval(fetchLiveStatus, 30000);
+setInterval(fetchYesterdayMemo, 300000); // 每5分钟刷新一次小记
 </script>
 </body>
 </html>
